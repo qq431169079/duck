@@ -9,15 +9,12 @@
 #include <stdlib.h>
 
 #define DEFAULT_PORT 9999
-#define MAX_FD_SETSIZE 1001
-#define MAX_LISTEN 1000
 #define MAX_LEN 4096
 
 int main(int argc, char *argv[]) {
     int listenfd, connfd;
     int byte_read;
     short int port = DEFAULT_PORT;
-    pid_t childpid;
     socklen_t clilen;
     struct sockaddr_in cliaddr, servaddr;
     char buffer[MAX_LEN];
@@ -44,7 +41,7 @@ int main(int argc, char *argv[]) {
         perror("Error binding"), exit(EXIT_FAILURE);
     }
 
-    if (listen(listenfd, MAX_LISTEN) < 0) {
+    if (listen(listenfd, FD_SETSIZE) < 0) {
         perror("Error listening"), exit(EXIT_FAILURE);
     }
 
@@ -53,10 +50,10 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         read_fd_set = active_fd_set;
-        if (select(MAX_FD_SETSIZE, &read_fd_set, NULL, NULL, NULL) < 0) {
+        if (select(FD_SETSIZE, &read_fd_set, NULL, NULL, NULL) < 0) {
             perror("Error selecting"), exit(EXIT_FAILURE);
         } 
-        for (int i = 0; i < MAX_FD_SETSIZE; ++i) {
+        for (int i = 0; i < FD_SETSIZE; ++i) {
             if (FD_ISSET(i, &read_fd_set)) {
                 if (i == listenfd) {
                     clilen = sizeof(cliaddr);

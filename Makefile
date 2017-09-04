@@ -6,10 +6,10 @@ CCFLAGS = -Wall -Werror
 default: echo_server echo_client
 
 echo_server:
-	@gcc server.c -o server 
+	@gcc server.c -o server $(CCFLAGS)
 
 echo_client:
-	@gcc client.c -o client
+	@gcc client.c -o client $(CCFLAGS)
 
 clean:
 	 @rm server client
