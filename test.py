@@ -1,7 +1,5 @@
-#   Authors: Athula Balachandran <abalacha@cs.cmu.edu>,                 
-#          Wolf Richter <wolf@cs.cmu.edu>
-
 #!/usr/bin/python
+# Authors: Athula Balachandran <abalacha@cs.cmu.edu> Wolf Richter <wolf@cs.cmu.edu>
 
 from socket import *
 import sys
