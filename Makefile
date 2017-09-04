@@ -12,5 +12,5 @@ echo_client:
 	@gcc client.c -o client $(CCFLAGS)
 
 clean:
-	 @rm server client
+	 @rm server client log.txt
 
