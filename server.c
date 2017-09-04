@@ -10,6 +10,21 @@
 
 #define DEFAULT_PORT 9999
 #define MAX_LEN 4096
+#define LOG_FILE_NAME "log.txt"
+
+void close_log_file(FILE *log_file) {
+    if (fclose(log_file) == EOF) {
+        perror("Error closing log file"), exit(EXIT_FAILURE);
+    }
+}
+
+FILE *create_log_file() {
+    FILE *log_file;
+    if ((log_file = fopen(LOG_FILE_NAME, "w")) == NULL) {
+        perror("Error creating log file"), exit(EXIT_FAILURE);
+    }
+    return log_file;
+}
 
 int main(int argc, char *argv[]) {
     int listenfd, connfd;
@@ -19,6 +34,13 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in cliaddr, servaddr;
     char buffer[MAX_LEN];
     fd_set active_fd_set, read_fd_set;
+    FILE *log_file;
+
+    log_file = create_log_file();
+
+    if (log_file) {
+        ;
+    }    
 
     if (argc > 2) {
         printf("usage: ./server port"), exit(EXIT_FAILURE);
