@@ -1,16 +1,24 @@
 # Authors: Athula Balachandran <abalacha@cs.cmu.edu>,                          
 #          Wolf Richter <wolf@cs.cmu.edu>                                      
 
+CC = gcc
 CCFLAGS = -Wall -Werror
+OBJ = server.o log.o client.o
 
-default: echo_server echo_client
+all: server
 
-echo_server:
-	@gcc server.c -o server $(CCFLAGS)
+server: $(OBJ)
+	$(CC) $(CCFLAGS) -o server $(OBJ)
 
-echo_client:
-	@gcc client.c -o client $(CCFLAGS)
+server.o: server.c
+	$(CC) $(CCFLAGS) -c server.c
+
+log.o: log.c log.h
+	$(CC) $(CCFLAGS) -c log.c
+
+client.o: client.c client.h
+	$(CC) $(CCFLAGS) -c client.c
 
 clean:
-	 @rm server client log.txt
+	rm server $(OBJ)
 

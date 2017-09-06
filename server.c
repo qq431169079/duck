@@ -3,61 +3,26 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <errno.h>
-#include <time.h>
 #include <string.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+
+#include "log.h"
+#include "client.h"
 
 #define DEFAULT_PORT 9999
-#define MAX_LEN 4096
-#define LOG_FILE_NAME "log.txt"
 
-FILE *log_file;
 
-char *get_current_time(char *buffer, int size) {
-    time_t timer;
-    struct tm* time_info;
-    time(&timer);
-    time_info = localtime(&timer);
-  
-    strftime(buffer, size, "%H:%M:%S %D", time_info);
-    return buffer;
-}
-
-void log_msg(const char *message) {
-    char buffer[26];
-    fprintf(log_file, "%s %s: %s\n", get_current_time(buffer, 26), strerror(errno), message);
-    fflush(log_file);
-}
-
-void log_client(const char *user_info) {
-    char buffer[26];
-    fprintf(log_file, "%s %s", get_current_time(buffer, 26), user_info);
-    fflush(log_file);
-}
-
-void close_log_file() {
-    if (fclose(log_file) == EOF) {
-        log_msg("Error closing log file");
-    }
-}
-
-void create_log_file() {
-    if ((log_file = fopen(LOG_FILE_NAME, "w")) == NULL) {
-        perror("Error creating log file"), exit(EXIT_FAILURE);
-    }
-}
-
-void shutdown_server() {
-    close_log_file(log_file);
+void shutdown_server(int signum) {
     log_msg("Shutdown server");
+    close_log_file(log_file);
     exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
     int listenfd, connfd;
     int byte_read;
+    int current_process_id;
     short int port = DEFAULT_PORT;
     socklen_t clilen;
     struct sockaddr_in cliaddr, servaddr;
@@ -65,20 +30,23 @@ int main(int argc, char *argv[]) {
     fd_set active_fd_set, read_fd_set;
 
     create_log_file();
-    log_msg("start server");
-    
+    log_msg("Start server");
+
+    current_process_id = getpid();
+    signal(SIGTERM, shutdown_server);
+
     if (argc > 2) {
         errno = EXIT_FAILURE;
-        log_msg("usage: ./server port"), shutdown_server();
+        log_msg("usage: ./server port"), kill(current_process_id, SIGTERM);
     } else if (argc == 2) {
         if ((port = strtol(argv[1], NULL, 0)) == 0) {
             errno = EXIT_FAILURE;
-            log_msg("invalid port number"), shutdown_server();
+            log_msg("invalid port number"), kill(current_process_id, SIGTERM);
         }
     }
 
     if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        log_msg("Error opening socket"), shutdown_server();
+        log_msg("Error opening socket"), kill(current_process_id, SIGTERM);
     }
 
     memset(&servaddr, 0, sizeof(servaddr));
@@ -87,11 +55,11 @@ int main(int argc, char *argv[]) {
     servaddr.sin_port = htons(port);
 
     if ((bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr))) < 0) {
-        log_msg("Error binding"), shutdown_server();
+        log_msg("Error binding"), kill(current_process_id, SIGTERM);
     }
 
     if (listen(listenfd, FD_SETSIZE) < 0) {
-        log_msg("Error listening"), shutdown_server();
+        log_msg("Error listening"), kill(current_process_id, SIGTERM);
     }
 
     FD_ZERO(&active_fd_set);
@@ -112,7 +80,7 @@ int main(int argc, char *argv[]) {
                         continue;
                     } 
                     
-                    log_client(inet_ntoa(cliaddr.sin_addr));     
+                    log_client(inet_ntoa(cliaddr.sin_addr), "connected");     
                     FD_SET(connfd, &active_fd_set);
                 } else {
                     byte_read = read(i, buffer, MAX_LEN); 
@@ -124,6 +92,7 @@ int main(int argc, char *argv[]) {
                             log_msg("Error closing connfd");
                             continue;
                         }
+
                         FD_CLR(i, &active_fd_set);
                     } else {
                         if (write(i, buffer, byte_read) == -1) {
