@@ -18,7 +18,11 @@ void log_msg(const char *message) {
 
 void log_client(const char *client_ip, const char *message) {
     char buffer[26];
-    fprintf(log_file, "%s %s %s\n", get_current_time(buffer, 26), client_ip, message);
+    if (message == NULL) {
+        fprintf(log_file, "%s log_client unable to get client_ip\n", get_current_time(buffer, 26));
+    } else {
+        fprintf(log_file, "%s %s %s\n", get_current_time(buffer, 26), client_ip, message);
+    }
     fflush(log_file);
 }
 
