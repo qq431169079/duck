@@ -17,15 +17,17 @@
 #define CLIENT_DISCONNECT -1
 #define ERROR_WRITE -2
 #define ERROR_READ -3
+#define INCOMPLETE_WRITE -4
 
 struct Client {
     int connfd;
     char ip[MAX_IP];
 
-    int byte_to_read;
+    int byte_to_write;
     char msg_buffer[MAX_LEN];
 };
 
+void forward_msg_buffer(struct Client *client, int offset);
 int process_message(struct Client *client);
 int read_message(struct Client *client);
 int write_message(struct Client *client); 

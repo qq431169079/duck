@@ -1,28 +1,24 @@
 #include "log.h"
 
-char *get_current_time(char *buffer, int size) {
+char *get_current_time() {
+    static char buffer[26];
     time_t timer;
     struct tm* time_info;
     time(&timer);
     time_info = localtime(&timer);
   
-    strftime(buffer, size, "%H:%M:%S %D", time_info);
+    strftime(buffer, 26, "%H:%M:%S %D", time_info);
     return buffer;
 }
 
 void log_msg(const char *message) {
-    char buffer[26];
-    fprintf(log_file, "%s %s %s\n", get_current_time(buffer, 26), message, strerror(errno));
+    fprintf(log_file, "%s %s %s\n", get_current_time(), message, strerror(errno));
     fflush(log_file);
 }
 
-void log_client(const char *client_ip, const char *message) {
-    char buffer[26];
-    if (message == NULL) {
-        fprintf(log_file, "%s log_client unable to get client_ip\n", get_current_time(buffer, 26));
-    } else {
-        fprintf(log_file, "%s %s %s\n", get_current_time(buffer, 26), client_ip, message);
-    }
+void log_client(struct Client *client, const char *message) {
+    fprintf(log_file, "%s %s %s\n", get_current_time(), 
+                get_info(client, log_buffer), message);
     fflush(log_file);
 }
 

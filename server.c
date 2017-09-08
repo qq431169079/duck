@@ -7,13 +7,28 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include "log.h"
 #include "client.h"
+#include "log.h"
 
 #define DEFAULT_PORT 9999
 
-
 struct Client *clients[FD_SETSIZE];
+
+int parse_command_argument(int argc, char *argv[], short int *port) {
+    if (argc > 2) {
+        errno = EXIT_FAILURE;
+        log_msg("usage: ./server port");
+        return -1;
+    } else if (argc == 2) {
+        if ((*port = strtol(argv[1], NULL, 0)) == 0) {
+            errno = EXIT_FAILURE;
+            log_msg("invalid port number");
+            return -1;
+        }
+    }
+
+    return 0;
+}
 
 void shutdown_server(int signum) {
     log_msg("Shutdown server");
@@ -38,14 +53,8 @@ int main(int argc, char *argv[]) {
     current_process_id = getpid();
     signal(SIGTERM, shutdown_server);
 
-    if (argc > 2) {
-        errno = EXIT_FAILURE;
-        log_msg("usage: ./server port"), kill(current_process_id, SIGTERM);
-    } else if (argc == 2) {
-        if ((port = strtol(argv[1], NULL, 0)) == 0) {
-            errno = EXIT_FAILURE;
-            log_msg("invalid port number"), kill(current_process_id, SIGTERM);
-        }
+    if (parse_command_argument(argc, argv, &port) == -1) {
+        kill(current_process_id, SIGTERM);
     }
 
     if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -84,7 +93,7 @@ int main(int argc, char *argv[]) {
                     
                     clients[connfd] = (struct Client *) malloc (sizeof(struct Client));
                     set_client(clients[connfd], connfd, &cliaddr);
-                    log_client(get_info(clients[connfd], client_info_buffer), "connected");     
+                    log_client(clients[connfd], "connected");     
                     FD_SET(connfd, &active_fd_set);
                 } else {
                     int status = process_message(clients[i]);
@@ -92,6 +101,8 @@ int main(int argc, char *argv[]) {
                         if (close(i) < 0) {
                             log_msg("Error closing connfd");
                         }
+
+                        log_client(clients[i], "disconnected");
                         FD_CLR(i, &active_fd_set);
                         free(clients[i]);
                     }

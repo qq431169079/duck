@@ -7,13 +7,19 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define LOG_FILE_NAME "log.txt"
+#include "client.h"
 
+#define LOG_FILE_NAME "log.txt"
+#define MAX_LOG_LEN 256
+
+struct Client;
 FILE *log_file;
 
-char *get_current_time(char *buffer, int size);
+char log_buffer[MAX_LOG_LEN];
+
+char *get_current_time();
 void log_msg(const char *message);
-void log_client(const char *client_ip, const char *message);
+void log_client(struct Client *client, const char *message);
 void close_log_file();
 void create_log_file();
 
