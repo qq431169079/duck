@@ -35,16 +35,40 @@ void shutdown_server(int signum) {
     exit(EXIT_FAILURE);
 }
 
+int setup_listenfd(const short int port) {
+    int listenfd = 0;
+    struct sockaddr_in servaddr;
+
+    if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        log_msg("Error opening socket");
+        return -1;
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(port);
+
+    if ((bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr))) < 0) {
+        log_msg("Error binding");
+        return -1;
+    }
+    if (listen(listenfd, FD_SETSIZE) < 0) {
+        log_msg("Error listening");
+        return -1;
+    }
+
+    return listenfd;
+}
+
 int main(int argc, char *argv[]) {
     int listenfd, connfd;
     int current_process_id;
     short int port = DEFAULT_PORT;
+    struct sockaddr_in cliaddr;
     socklen_t clilen;
-    struct sockaddr_in cliaddr, servaddr;
     char buffer[MAX_LEN];
     fd_set active_fd_set, read_fd_set;
-
-    memset(clients, 0, sizeof(clients));
 
     create_log_file();
     current_process_id = getpid();
@@ -53,20 +77,11 @@ int main(int argc, char *argv[]) {
     if (parse_command_argument(argc, argv, &port) == -1) {
         kill(current_process_id, SIGTERM);
     }
-
-    if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        log_msg("Error opening socket"), kill(current_process_id, SIGTERM);
+    
+    if ((listenfd = setup_listenfd(port)) == -1) {
+        kill(current_process_id, SIGTERM);
     }
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(port);
-    if ((bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr))) < 0) {
-        log_msg("Error binding"), kill(current_process_id, SIGTERM);
-    }
-    if (listen(listenfd, FD_SETSIZE) < 0) {
-        log_msg("Error listening"), kill(current_process_id, SIGTERM);
-    }
+    
 
     FD_ZERO(&active_fd_set);
     FD_SET(listenfd, &active_fd_set);
