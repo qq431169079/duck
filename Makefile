@@ -1,5 +1,6 @@
 # Authors: Athula Balachandran <abalacha@cs.cmu.edu>,                          
 #          Wolf Richter <wolf@cs.cmu.edu>                                      
+.PHONY: clean
 
 CC = gcc
 CCFLAGS = -Wall -Werror
