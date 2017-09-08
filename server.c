@@ -12,7 +12,6 @@
 
 #define DEFAULT_PORT 9999
 
-
 int parse_command_argument(int argc, char *argv[], short int *port) {
     if (argc > 2) {
         errno = EXIT_FAILURE;
