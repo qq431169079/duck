@@ -1,5 +1,16 @@
 #include "client.h"
 
+void add_client(const int connfd, struct sockaddr_in *cliaddr) {
+     clients[connfd] = (struct Client *) malloc (sizeof(struct Client));
+     init_client(clients[connfd], connfd, cliaddr);
+     log_client(clients[connfd], "connected");   
+}
+
+void remove_client(const int connfd) {
+    log_client(clients[connfd], "disconnected");
+    free(clients[connfd]);
+}
+
 int process_message(struct Client *client) {
     int status = 0;
 
@@ -60,7 +71,7 @@ int write_message(struct Client *client) {
     return byte_written;
 }
 
-void set_client(struct Client *client, int connfd, struct sockaddr_in *cliaddr) {
+void init_client(struct Client *client, int connfd, struct sockaddr_in *cliaddr) {
     client->byte_to_write = 0;
     client->connfd = connfd;
     strcpy(client->ip, inet_ntoa(cliaddr->sin_addr));

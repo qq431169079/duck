@@ -27,11 +27,15 @@ struct Client {
     char msg_buffer[MAX_LEN];
 };
 
+struct Client *clients[FD_SETSIZE];
+
+void add_client(const int connfd, struct sockaddr_in *cliaddr);
+void remove_client(const int connfd);
 void forward_msg_buffer(struct Client *client, int offset);
 int process_message(struct Client *client);
 int read_message(struct Client *client);
 int write_message(struct Client *client); 
-void set_client(struct Client *client, int connfd, struct sockaddr_in *cliaddr);
+void init_client(struct Client *client, int connfd, struct sockaddr_in *cliaddr);
 char *get_info(struct Client *client, char *buffer);
 
 #endif

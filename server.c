@@ -12,7 +12,6 @@
 
 #define DEFAULT_PORT 9999
 
-struct Client *clients[FD_SETSIZE];
 
 int parse_command_argument(int argc, char *argv[], short int *port) {
     if (argc > 2) {
@@ -44,10 +43,8 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in cliaddr, servaddr;
     char buffer[MAX_LEN];
     fd_set active_fd_set, read_fd_set;
-    char client_info_buffer[MAX_INFO_LEN];
 
     memset(clients, 0, sizeof(clients));
-    memset(client_info_buffer, 0, sizeof(client_info_buffer));
 
     create_log_file();
     current_process_id = getpid();
@@ -80,7 +77,6 @@ int main(int argc, char *argv[]) {
         read_fd_set = active_fd_set;
         if (select(FD_SETSIZE, &read_fd_set, NULL, NULL, NULL) < 0) {
             log_msg("Error selecting");
-            continue;
         } 
         for (int i = 0; i < FD_SETSIZE; ++i) {
             if (FD_ISSET(i, &read_fd_set)) {
@@ -88,12 +84,9 @@ int main(int argc, char *argv[]) {
                     clilen = sizeof(cliaddr);
                     if ((connfd = accept(listenfd, (struct sockaddr *) &cliaddr, &clilen)) < 0) {
                         log_msg("Error accepting");
-                        continue;
                     } 
                     
-                    clients[connfd] = (struct Client *) malloc (sizeof(struct Client));
-                    set_client(clients[connfd], connfd, &cliaddr);
-                    log_client(clients[connfd], "connected");     
+                    add_client(connfd, &cliaddr);
                     FD_SET(connfd, &active_fd_set);
                 } else {
                     int status = process_message(clients[i]);
@@ -102,12 +95,10 @@ int main(int argc, char *argv[]) {
                             log_msg("Error closing connfd");
                         }
 
-                        log_client(clients[i], "disconnected");
                         FD_CLR(i, &active_fd_set);
-                        free(clients[i]);
+                        remove_client(i);
                     }
 
-                    memset(client_info_buffer, 0, sizeof(client_info_buffer));
                     memset(buffer, 0, MAX_LEN);
                 }
             }
