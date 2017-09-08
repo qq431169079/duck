@@ -39,6 +39,8 @@ int read_message(struct Client *client) {
 
     int byte_read = 0;
     byte_read = read(client->connfd, client->msg_buffer, MAX_LEN);
+
+    printf("%s", client->msg_buffer);
     if (byte_read == 0) {
         return CLIENT_DISCONNECT;
     } else if (byte_read == -1) {
