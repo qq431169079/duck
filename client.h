@@ -8,33 +8,59 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+
+#include "http_parser.h"
 #include "log.h"
 
+#ifndef MAX_LEN
 #define MAX_LEN 4096
-#define MAX_IP 128
-#define MAX_INFO_LEN 256
+#endif 
 
+#ifndef MAX_HEADER_COUNT
+#define MAX_HEADER_COUNT 64
+#endif 
+
+#ifndef CLIENT_DISCONNECT
 #define CLIENT_DISCONNECT -1
-#define ERROR_WRITE -2
-#define ERROR_READ -3
-#define INCOMPLETE_WRITE -4
+#endif
+
+struct Response {
+
+
+};
+
+struct Request {
+    char *method;
+    char *url;
+    char *headers[MAX_HEADER_COUNT];
+    char *body;
+    unsigned short http_major;
+    unsigned short http_minor;
+};
 
 struct Client {
     int connfd;
-    char ip[MAX_IP];
+    char ip[128];
 
-    int byte_to_write;
-    char msg_buffer[MAX_LEN];
+    struct Request request;
+    struct Response response;
 };
+
+size_t char_size;
 
 struct Client *clients[FD_SETSIZE];
 
+http_parser_settings settings;
+void init_parser_settings();
+int on_headers_complete(http_parser *parser);
+int on_url(http_parser *parser, const char *at, size_t length);
+int on_header_field(http_parser *parser, const char *at, size_t length);
+int on_header_value(http_parser *parser, const char *at, size_t length);
+int on_body(http_parser *parser, const char *at, size_t length);
+
 void add_client(const int connfd, struct sockaddr_in *cliaddr);
 void remove_client(const int connfd);
-void forward_msg_buffer(struct Client *client, int offset);
 int process_message(struct Client *client);
-int read_message(struct Client *client);
-int write_message(struct Client *client); 
 void init_client(struct Client *client, int connfd, struct sockaddr_in *cliaddr);
 char *get_info(struct Client *client, char *buffer);
 

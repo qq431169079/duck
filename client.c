@@ -1,5 +1,45 @@
 #include "client.h"
 
+int on_headers_complete(http_parser *parser) {
+    struct Client *client = parser->data;
+    const char *method = http_method_str((enum http_method) parser->method);
+    
+    client->request.method = malloc(sizeof(method));
+    strcpy(client->request.method, method);
+    client->request.http_major = parser->http_major;
+    client->request.http_minor = parser->http_minor;
+    
+    return 0;
+}
+
+int on_url(http_parser *parser, const char *at, size_t length) {
+    struct Client *client = parser->data;
+    
+    client->request.url = malloc(char_size * length + 1);
+    strncpy(client->request.url, at, length);
+    client->request.url[length] = '\0';
+    
+    return 0;
+}
+
+int on_header_field(http_parser *parser, const char *at, size_t length) {
+    return 0;
+}
+
+int on_header_value(http_parser *parser, const char *at, size_t length) {
+    return 0;
+}
+
+int on_body(http_parser *parser, const char *at, size_t length) {
+    struct Client *client = parser->data;
+    
+    client->request.body = malloc(char_size * length + 1);
+    strncpy(client->request.body, at, length);
+    client->request.body[length] = '\0';
+    
+    return 0;
+}
+
 void add_client(const int connfd, struct sockaddr_in *cliaddr) {
      clients[connfd] = (struct Client *) malloc (sizeof(struct Client));
      init_client(clients[connfd], connfd, cliaddr);
@@ -8,73 +48,61 @@ void add_client(const int connfd, struct sockaddr_in *cliaddr) {
 
 void remove_client(const int connfd) {
     log_client(clients[connfd], "disconnected");
+    
+    free(clients[connfd]->request.method);
+    free(clients[connfd]->request.url);
+    free(clients[connfd]->request.body);
+    for (size_t i = 0; i < MAX_HEADER_COUNT; i++) {
+        free(clients[connfd]->request.headers[i]);
+    }
+
     free(clients[connfd]);
 }
 
 int process_message(struct Client *client) {
-    int status = 0;
+    char msg_buffer[MAX_LEN];
 
-    status = read_message(client);
-    if (status == CLIENT_DISCONNECT) {
-        return status;
-    } else if (status == ERROR_READ) {
-        log_client(client, "Error reading from client");
-        return status;
-    }
+    http_parser *parser = malloc(sizeof(http_parser));
+    http_parser_init(parser, HTTP_REQUEST);
+    parser->data = client;
 
-    status = write_message(client);
-    if (status == ERROR_WRITE) {
-        log_client(client, "Error writing to client");
-    } else if (status == INCOMPLETE_WRITE) {
-        log_client(client, "Incomplete write to client");
-    }
+    size_t len = MAX_LEN, nparsed;
+    ssize_t recved;
 
-    return status;
-}
+    recved = recv(client->connfd, msg_buffer, len, 0);
+    msg_buffer[recved] = '\0';
+    printf("%s\n", msg_buffer);
 
-int read_message(struct Client *client) {
-    if (client->byte_to_write != 0) {
-        return 0;
-    }
-
-    int byte_read = 0;
-    byte_read = read(client->connfd, client->msg_buffer, MAX_LEN);
-
-    printf("%s", client->msg_buffer);
-    if (byte_read == 0) {
+    if (recved < 0) {
+        log_client(client, "Error recv");
+    } else if (recved == 0) {
         return CLIENT_DISCONNECT;
-    } else if (byte_read == -1) {
-        return ERROR_READ;
     }
-
-    client->byte_to_write += byte_read;
-    return 0;
-}
-
-void forward_msg_buffer(struct Client *client, int offset) {
-    for (int i = 0; i < client->byte_to_write; i++) {
-        client->msg_buffer[i] = client->msg_buffer[i + offset];
-    }
-}
-
-int write_message(struct Client *client) {
-    int byte_written = 0;
     
-    byte_written = write(client->connfd, client->msg_buffer, client->byte_to_write);
-    if (byte_written < client->byte_to_write) {
-        client->byte_to_write -= byte_written;
-        forward_msg_buffer(client, byte_written);
-        return INCOMPLETE_WRITE;
-    } else if (byte_written == -1) {
-        return ERROR_WRITE;
+    nparsed = http_parser_execute(parser, &settings, msg_buffer, recved);
+    
+    if (parser->upgrade) {
+        log_client(client, "Error parser->upgrade");
+    } else if (nparsed != recved) {
+        log_client(client, "Error nparsed != recved");
     }
+    
+    free(parser);
 
-    client->byte_to_write -= byte_written;
-    return byte_written;
+    return CLIENT_DISCONNECT;
+}
+
+void init_parser_settings() {
+    settings.on_url = on_url;
+    settings.on_header_field = on_header_field;
+    settings.on_header_value = on_header_value;
+    settings.on_body = on_body;
+    settings.on_headers_complete = on_headers_complete;
 }
 
 void init_client(struct Client *client, int connfd, struct sockaddr_in *cliaddr) {
-    client->byte_to_write = 0;
+    char_size = sizeof(char);
+    memset(client, 0, sizeof(struct Client));
     client->connfd = connfd;
     strcpy(client->ip, inet_ntoa(cliaddr->sin_addr));
 }

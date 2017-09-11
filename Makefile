@@ -4,7 +4,7 @@
 
 CC = gcc
 CCFLAGS = -Wall -Werror
-OBJ = server.o client.o log.o
+OBJ = server.o client.o log.o http_parser.o
 
 all: server
 
@@ -19,6 +19,9 @@ client.o: client.c client.h
 
 log.o: log.c log.h 
 	$(CC) $(CCFLAGS) -c log.c
+
+http_parser.o: http_parser.c http_parser.h
+	$(CC) $(CCFLAGS) -c http_parser.c
 
 clean:
 	rm server $(OBJ)

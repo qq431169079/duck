@@ -10,7 +10,9 @@
 #include "client.h"
 #include "log.h"
 
+#ifndef DEFAULT_PORT
 #define DEFAULT_PORT 9999
+#endif
 
 int parse_command_argument(int argc, char *argv[], short int *port) {
     if (argc > 2) {
@@ -24,7 +26,6 @@ int parse_command_argument(int argc, char *argv[], short int *port) {
             return -1;
         }
     }
-
     return 0;
 }
 
@@ -68,7 +69,8 @@ int main(int argc, char *argv[]) {
     socklen_t clilen;
     char buffer[MAX_LEN];
     fd_set active_fd_set, read_fd_set;
-
+    
+    init_parser_settings();
     create_log_file();
     current_process_id = getpid();
     signal(SIGTERM, shutdown_server);
