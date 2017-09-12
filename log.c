@@ -17,8 +17,8 @@ void log_msg(const char *message) {
 }
 
 void log_client(struct Client *client, const char *message) {
-    fprintf(log_file, "%s %s %s\n", get_current_time(), 
-                get_info(client, log_buffer), message);
+    fprintf(log_file, "%s %s %s %s\n", get_current_time(), 
+                get_info(client, log_buffer), message, strerror(errno));
     fflush(log_file);
 }
 

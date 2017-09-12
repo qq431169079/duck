@@ -12,6 +12,10 @@
 #include "http_parser.h"
 #include "log.h"
 
+typedef struct Request Request;
+typedef struct Client Client;
+typedef struct Response Response;
+
 #ifndef MAX_LEN
 #define MAX_LEN 4096
 #endif 
@@ -25,7 +29,6 @@
 #endif
 
 struct Response {
-
 
 };
 
@@ -48,20 +51,24 @@ struct Client {
 
 size_t char_size;
 
-struct Client *clients[FD_SETSIZE];
+Client *clients[FD_SETSIZE];
 
 http_parser_settings settings;
 void init_parser_settings();
+int on_message_complete(http_parser *parser);
 int on_headers_complete(http_parser *parser);
 int on_url(http_parser *parser, const char *at, size_t length);
 int on_header_field(http_parser *parser, const char *at, size_t length);
 int on_header_value(http_parser *parser, const char *at, size_t length);
 int on_body(http_parser *parser, const char *at, size_t length);
 
+size_t get_digits_of_length(size_t partial_content_length);
+int process_response(Client *client);
+int process_message(Client *client);
+
 void add_client(const int connfd, struct sockaddr_in *cliaddr);
 void remove_client(const int connfd);
-int process_message(struct Client *client);
-void init_client(struct Client *client, int connfd, struct sockaddr_in *cliaddr);
-char *get_info(struct Client *client, char *buffer);
+void init_client(Client *client, int connfd, struct sockaddr_in *cliaddr);
+char *get_info(Client *client, char *buffer);
 
 #endif

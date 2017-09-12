@@ -86,7 +86,6 @@ int main(int argc, char *argv[]) {
 
     FD_ZERO(&active_fd_set);
     FD_SET(listenfd, &active_fd_set);
-
     log_msg("Start server");
 
     while (1) {
