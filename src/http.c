@@ -67,22 +67,6 @@ void remove_connection(const int connfd) {
     free(connections[connfd]);
 }
 
-size_t get_digits_of_length(size_t partial_length) {
-    size_t count = 0;
-    for (int i = partial_length; i != 0; i /= 10) {
-        count++;
-    }
-    
-    if ((count == 1 && partial_length >=   9)  ||
-        (count == 2 && partial_length >=   98) ||
-        (count == 3 && partial_length >=  997) ||
-        (count == 4 && partial_length >= 9996))  {
-        count++;
-    } 
-
-    return count;
-}
-
 int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
     const char *ptr;
     
