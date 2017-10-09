@@ -23,6 +23,7 @@ enum file_type {
 
 typedef struct {
     size_t status_code;
+    
 
 } http_response;
 

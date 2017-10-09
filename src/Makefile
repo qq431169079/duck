@@ -3,7 +3,7 @@
 .PHONY: clean
 
 CC = gcc
-CCFLAGS = -Wall -Werror
+CCFLAGS = -Wall -Werror -ggdb
 OBJ = server.o http.o log.o http_parser.o
 
 all: server

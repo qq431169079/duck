@@ -1,8 +1,10 @@
 #include "http.h"
 
 static const char *PATH_TO_INDEX = "../www/index.html";
-//static const char *PATH_TO_IMAGE = "../www/images/liso_header.png";
+static const char *PATH_TO_IMAGE = "../www/images/liso_header.png";
+static const char *PATH_TO_STYLE = "../www/style.css";
 static const char *HTTP_VERSION = "HTTP/1.1";
+static const char *PATH_TO_ICON = "../www/images/favicon.ico";
 
 int on_message_complete(http_parser *parser) {
     return 0;
@@ -47,6 +49,7 @@ int on_body(http_parser *parser, const char *at, size_t length) {
     
     return 0;
 }
+
 
 void add_connection(const int connfd, struct sockaddr_in *cliaddr) {
      connections[connfd] = (http_connection *) malloc (sizeof(http_connection));
@@ -156,17 +159,43 @@ int parse_http(http_connection *connection) {
 }
 
 int fetch_files(http_connection *connection) {
+    
+    
     return 0;
 }
 
 int construct_response(http_connection *connection, char *http_info, size_t *http_info_size, char *body, size_t *body_size) {
-    if ((*body_size = read_file(connection, PATH_TO_INDEX, body, TEXT)) < 0) {
+    const char *path;
+    enum file_type f_type;
+    const char *content_type;
+    if (strcmp(connection->request.url, "/") == 0) {
+        path = PATH_TO_INDEX;
+        f_type = TEXT;
+        content_type = "text/html";
+    } else if (strcmp(connection->request.url, "/style.css") == 0) {
+        path = PATH_TO_STYLE;
+        f_type = TEXT;
+        content_type = "text/css";
+    } else if (strcmp(connection->request.url, "/images/list_header.png") == 0) {
+        path = PATH_TO_IMAGE;
+        f_type = BINARY;
+        content_type = "image/png";
+    } else if (strcmp(connection->request.url, "/favicon.ico") == 0) {
+        path = PATH_TO_ICON;
+        f_type = BINARY;
+        content_type = "image/x-icon";    
+    } else {
+        return -1;
+    }
+        
+    if ((*body_size = read_file(connection, path, body, f_type)) < 0) {
         return -1;
     }
     
+    // TODO: wrap http_info into http_request of http_connection
     char *target = http_info;
     target += sprintf(target, "%s %d %s\n", HTTP_VERSION, 200, "OK");
-    target += sprintf(target, "%s: %s\n", "Content-Type", "text/html");
+    target += sprintf(target, "%s: %s\n", "Content-Type", content_type);
     target += sprintf(target, "%s: %lu\n", "Content-Length", *body_size);
     target += sprintf(target, "%s: %s\n", "Connection", "close");
     target += sprintf(target, "\n");
@@ -175,6 +204,7 @@ int construct_response(http_connection *connection, char *http_info, size_t *htt
     return 0;
 }
 
+// send the http_info(headers) first, then the body
 int send_response(http_connection *connection, const char *http_info, const size_t http_info_size, const char *body, const size_t body_size) {
     if (send_n(connection->connfd, http_info, http_info_size, 0) == -1) {
         log_connection(get_info(connection), "send error");
@@ -198,12 +228,15 @@ int process_response(http_connection *connection) {
     if (fetch_files(connection) == -1) {
         return -1;
     }
+
     if (construct_response(connection, http_info, &http_info_size, body, &body_size) == -1) {
         return -1;
     }
+
     if (send_response(connection, http_info, http_info_size, body, body_size) == -1) {
         return -1;
     }
+    
     return 0;
 }
 
