@@ -50,7 +50,6 @@ int on_body(http_parser *parser, const char *at, size_t length) {
     return 0;
 }
 
-
 void add_connection(const int connfd, struct sockaddr_in *cliaddr) {
      connections[connfd] = (http_connection *) malloc (sizeof(http_connection));
      init_connection(connections[connfd], connfd, cliaddr);
@@ -89,15 +88,15 @@ int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
     return 0;
 }
 
-ssize_t read_file(http_connection *connection, const char *path_to_file, char *body, enum file_type f_type) {
+ssize_t read_file(http_connection *connection, const char *path_to_file, char *body, enum file_open_mode f_mode) {
     FILE *file;
     char *buf;
     ssize_t body_size;
     char *open_mode;
     
-    switch(f_type) {
-        case BINARY: open_mode = "rb"; break;
-        case TEXT:   open_mode = "r";  break;
+    switch(f_mode) {
+        case OPEN_BINARY: open_mode = "rb"; break;
+        case OPEN_TEXT:   open_mode = "r";  break;
         default:     log_connection(get_info(connection), "Unknown file_type"); return -1;
     }
 
@@ -166,29 +165,30 @@ int fetch_files(http_connection *connection) {
 
 int construct_response(http_connection *connection, char *http_info, size_t *http_info_size, char *body, size_t *body_size) {
     const char *path;
-    enum file_type f_type;
+    enum file_open_mode f_mode;
     const char *content_type;
+    log_connection(get_info(connection), connection->request.url);
     if (strcmp(connection->request.url, "/") == 0) {
         path = PATH_TO_INDEX;
-        f_type = TEXT;
+        f_mode = OPEN_TEXT;
         content_type = "text/html";
     } else if (strcmp(connection->request.url, "/style.css") == 0) {
         path = PATH_TO_STYLE;
-        f_type = TEXT;
+        f_mode = OPEN_TEXT;
         content_type = "text/css";
-    } else if (strcmp(connection->request.url, "/images/list_header.png") == 0) {
+    } else if (strcmp(connection->request.url, "/images/liso_header.png") == 0) {
         path = PATH_TO_IMAGE;
-        f_type = BINARY;
+        f_mode = OPEN_BINARY;
         content_type = "image/png";
     } else if (strcmp(connection->request.url, "/favicon.ico") == 0) {
         path = PATH_TO_ICON;
-        f_type = BINARY;
+        f_mode = OPEN_BINARY;
         content_type = "image/x-icon";    
     } else {
         return -1;
     }
         
-    if ((*body_size = read_file(connection, path, body, f_type)) < 0) {
+    if ((*body_size = read_file(connection, path, body, f_mode)) < 0) {
         return -1;
     }
     

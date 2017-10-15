@@ -1,5 +1,7 @@
-#ifndef CLIENT_H_
-#define CLIENT_H_
+#ifndef HTTP_H_
+#define HTTP_H_
+
+#define _GNU_SOURCE
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -9,23 +11,22 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "http_parser.h"
+#include "lib/http_parser.h"
+#include "resource_manager.h"
 #include "log.h"
 
-enum file_type {
-    BINARY = 0
-,   TEXT   = 1
+enum file_open_mode {
+    OPEN_BINARY = 0
+,   OPEN_TEXT   = 1
 };
 
 #define MAX_LEN 4096
 #define MAX_HEADER_COUNT 64
 #define LOG_BUF_SIZE 256
 
-typedef struct {
-    size_t status_code;
-    
-
-} http_response;
+#ifndef FD_SETSIZE
+#define FD_SETSIZE 1024
+#endif
 
 typedef struct {
     char *method;
@@ -41,7 +42,6 @@ typedef struct {
     char ip[128];
 
     http_request request;
-    http_response response;
 } http_connection;
 
 http_connection *connections[FD_SETSIZE];
@@ -60,7 +60,7 @@ int on_header_value(http_parser *parser, const char *at, size_t length);
 
 int send_n(size_t connfd, const char *message, size_t bytes_to_read, int flag);
 
-ssize_t read_file(http_connection *connection, const char *path_to_file, char *body, enum file_type f_type);
+ssize_t read_file(http_connection *connection, const char *path_to_file, char *body, enum file_open_mode f_mode);
 
 int fetch_files(http_connection *connection);
 int parse_http(http_connection *connection);

@@ -2,9 +2,9 @@
 #          Wolf Richter <wolf@cs.cmu.edu>                                      
 .PHONY: clean
 
-CC = gcc
-CCFLAGS = -Wall -Werror -ggdb
-OBJ = server.o http.o log.o http_parser.o
+CC = gcc -std=c99
+CCFLAGS = -ggdb
+OBJ = server.o http.o log.o http_parser.o resource_manager.o
 
 all: server
 
@@ -20,8 +20,11 @@ http.o: http.c http.h
 log.o: log.c log.h 
 	$(CC) $(CCFLAGS) -c log.c
 
-http_parser.o: http_parser.c http_parser.h
-	$(CC) $(CCFLAGS) -c http_parser.c
+http_parser.o: lib/http_parser.c lib/http_parser.h
+	$(CC) $(CCFLAGS) -c lib/http_parser.c
+
+resource_manager.o: resource_manager.c resource_manager.h
+	$(CC) $(CCFLAGS) -c resource_manager.c
 
 clean:
 	rm server $(OBJ)
