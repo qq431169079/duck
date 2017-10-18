@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include "lib/http_parser.h"
-#include "resource_manager.h"
 #include "log.h"
 
 enum file_open_mode {

@@ -28,7 +28,7 @@ int on_url(http_parser *parser, const char *at, size_t length) {
     connection->request.url = malloc(length + 1);
     strncpy(connection->request.url, at, length);
     connection->request.url[length] = '\0';
-    
+    printf("%s\n", connection->request.url);
     return 0;
 }
 
@@ -72,16 +72,23 @@ void remove_connection(const int connfd) {
 int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
     const char *ptr;
     
-    ptr = message;
+    if ((ptr = message) == 0) {
+        log_connection(get_info(connections[connfd]), "message is empty");
+        return 0;
+    }
+    printf("New round of sending %zu\n", bytes_to_send);
     for (ssize_t bytes_sent = 0; bytes_to_send > 0; ) {
+        printf("bytes_to_send %zu\n", bytes_to_send);
         if ((bytes_sent = send(connfd, ptr, bytes_to_send, flag)) < 0) {
             if (bytes_sent < 0 && errno == EINTR) {
                 bytes_sent = 0;
             } else {
+                log_connection(get_info(connections[connfd]), "send_n error");
                 return -1;
             }
         }
         bytes_to_send -= bytes_sent;
+        printf("just send %zu\n", bytes_sent);
         ptr += bytes_sent;
     }
 
@@ -167,7 +174,6 @@ int construct_response(http_connection *connection, char *http_info, size_t *htt
     const char *path;
     enum file_open_mode f_mode;
     const char *content_type;
-    log_connection(get_info(connection), connection->request.url);
     if (strcmp(connection->request.url, "/") == 0) {
         path = PATH_TO_INDEX;
         f_mode = OPEN_TEXT;
@@ -185,14 +191,15 @@ int construct_response(http_connection *connection, char *http_info, size_t *htt
         f_mode = OPEN_BINARY;
         content_type = "image/x-icon";    
     } else {
+        log_connection(get_info(connection), "unmatched url");
         return -1;
     }
         
     if ((*body_size = read_file(connection, path, body, f_mode)) < 0) {
+        log_connection(get_info(connection), "cannot read_file");
         return -1;
     }
-    
-    // TODO: wrap http_info into http_request of http_connection
+
     char *target = http_info;
     target += sprintf(target, "%s %d %s\n", HTTP_VERSION, 200, "OK");
     target += sprintf(target, "%s: %s\n", "Content-Type", content_type);
@@ -222,8 +229,8 @@ int send_response(http_connection *connection, const char *http_info, const size
 int process_response(http_connection *connection) {
     size_t body_size = 0;
     size_t http_info_size = 0;
-    char body[20000] = { 0 };   // TODO: how to dynamic allocate just enough space?
-    char http_info[1024];        // TODO: same as above
+    char body[40000] = { 0 };   // TODO: how to dynamic allocate just enough space?
+    char http_info[1024] = { 0 };        // TODO: same as above
 
     if (fetch_files(connection) == -1) {
         return -1;
