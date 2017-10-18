@@ -28,7 +28,6 @@ int on_url(http_parser *parser, const char *at, size_t length) {
     connection->request.url = malloc(length + 1);
     strncpy(connection->request.url, at, length);
     connection->request.url[length] = '\0';
-    printf("%s\n", connection->request.url);
     return 0;
 }
 
@@ -76,9 +75,7 @@ int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
         log_connection(get_info(connections[connfd]), "message is empty");
         return 0;
     }
-    printf("New round of sending %zu\n", bytes_to_send);
     for (ssize_t bytes_sent = 0; bytes_to_send > 0; ) {
-        printf("bytes_to_send %zu\n", bytes_to_send);
         if ((bytes_sent = send(connfd, ptr, bytes_to_send, flag)) < 0) {
             if (bytes_sent < 0 && errno == EINTR) {
                 bytes_sent = 0;
@@ -88,7 +85,6 @@ int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
             }
         }
         bytes_to_send -= bytes_sent;
-        printf("just send %zu\n", bytes_sent);
         ptr += bytes_sent;
     }
 
