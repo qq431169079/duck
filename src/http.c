@@ -24,7 +24,12 @@ int on_headers_complete(http_parser *parser) {
 
 int on_url(http_parser *parser, const char *at, size_t length) {
     http_connection *connection = parser->data;
-    
+      
+    if (length == 0) {
+      log_connection(get_info(connection), "on_url cannot parse out url");
+      exit(EXIT_FAILURE);
+    }
+
     connection->request.url = malloc(length + 1);
     strncpy(connection->request.url, at, length);
     connection->request.url[length] = '\0';
@@ -42,6 +47,11 @@ int on_header_value(http_parser *parser, const char *at, size_t length) {
 int on_body(http_parser *parser, const char *at, size_t length) {
     http_connection *connection = parser->data;
     
+    if (length == 0) {
+      log_connection(get_info(connection), "on_body cannot parse out body");
+      exit(EXIT_FAILURE);
+    }
+
     connection->request.body = malloc(length + 1);
     strncpy(connection->request.body, at, length);
     connection->request.body[length] = '\0';
@@ -50,9 +60,8 @@ int on_body(http_parser *parser, const char *at, size_t length) {
 }
 
 void add_connection(const int connfd, struct sockaddr_in *cliaddr) {
-     connections[connfd] = (http_connection *) malloc (sizeof(http_connection));
-     init_connection(connections[connfd], connfd, cliaddr);
-     log_connection(get_info(connections[connfd]), "connected");   
+    connections[connfd] = (http_connection *) malloc (sizeof(http_connection));
+    init_connection(connections[connfd], connfd, cliaddr);
 }
 
 void remove_connection(const int connfd) {
@@ -70,7 +79,7 @@ void remove_connection(const int connfd) {
 
 int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
     const char *ptr;
-    
+  
     if ((ptr = message) == 0) {
         log_connection(get_info(connections[connfd]), "message is empty");
         return 0;
@@ -156,7 +165,9 @@ int parse_http(http_connection *connection) {
         return -1;
     }
     free(parser);
+
     
+
     return 0;
 }
 
@@ -170,6 +181,14 @@ int construct_response(http_connection *connection, char *http_info, size_t *htt
     const char *path;
     enum file_open_mode f_mode;
     const char *content_type;
+    
+    if (connection == 0) {
+      log_msg("construct_response: connection does not exist");
+      exit(EXIT_FAILURE);
+    } else if (connection->request.url == 0) {
+      log_connection(get_info(connection), "construct_response: connection has no url. give up the connection");
+      return -1;
+    }
     if (strcmp(connection->request.url, "/") == 0) {
         path = PATH_TO_INDEX;
         f_mode = OPEN_TEXT;
@@ -248,6 +267,9 @@ int connection_handler(http_connection *connection) {
     if ((status = parse_http(connection)) == -1) {
         return -1;
     }
+    
+    log_connection(get_full_info(connection), "");  // TODO: Connection time should be added before parsing so it can print now
+
     if ((status = process_response(connection)) == -1) {
         return -1;
     }
@@ -267,6 +289,14 @@ void init_connection(http_connection *connection, int connfd, struct sockaddr_in
     memset(connection, 0, sizeof(http_connection));
     connection->connfd = connfd;
     strcpy(connection->ip, inet_ntoa(cliaddr->sin_addr));
+}
+
+const char *get_full_info(const http_connection *connection) {
+    if (sprintf(log_buffer, "%s %d %s %s", connection->ip,  connection->connfd, connection->request.url, connection->request.method) < 0) {
+        return NULL;
+    }
+
+    return log_buffer;
 }
 
 const char *get_info(const http_connection *connection) {

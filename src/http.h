@@ -73,6 +73,7 @@ void add_connection(const int connfd, struct sockaddr_in *cliaddr);
 void remove_connection(const int connfd);
 void init_connection(http_connection *connection, int connfd, struct sockaddr_in *cliaddr);
 
+const char *get_full_info(const http_connection *connection);
 const char *get_info(const http_connection *connection);
 
 #endif

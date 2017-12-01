@@ -72,6 +72,8 @@ int main(int argc, char *argv[]) {
     char buffer[MAX_LEN];
     fd_set active_fd_set, read_fd_set;
     
+    
+
     init_parser_settings();
     create_log_file();
     current_process_id = getpid();
@@ -80,7 +82,7 @@ int main(int argc, char *argv[]) {
     if (parse_command_argument(argc, argv, &port) == -1) {
         kill(current_process_id, SIGTERM);
     }
-    
+
     if ((listenfd = setup_listenfd(port)) == -1) {
         kill(current_process_id, SIGTERM);
     }
@@ -107,6 +109,14 @@ int main(int argc, char *argv[]) {
                 } else {
                     int status = connection_handler(connections[i]);
                     if (status == 0) {
+                        if (close(i) < 0) {
+                            log_msg("Error closing connfd");
+                        }
+
+                        FD_CLR(i, &active_fd_set);
+                        remove_connection(i);
+                    } else if (status == -1) {
+                        // TODO: what to do if error occurs? specify types of error. 1. has no url
                         if (close(i) < 0) {
                             log_msg("Error closing connfd");
                         }

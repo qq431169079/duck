@@ -12,13 +12,13 @@ char *get_current_time() {
 }
 
 void log_msg(const char *message) {
-    fprintf(log_file, "%s %s %s\n", get_current_time(), message, strerror(errno));
+    fprintf(log_file, "%s %s\n", get_current_time(), message);
     fflush(log_file);
 }
 
 void log_connection(const char *connection_info, const char *message) {
-    fprintf(log_file, "%s %s %s %s\n", get_current_time(), 
-                connection_info, message, strerror(errno));
+    fprintf(log_file, "%s %s %s\n", get_current_time(), 
+                connection_info, message);
     fflush(log_file);
 }
 
