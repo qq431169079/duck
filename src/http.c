@@ -24,11 +24,6 @@ int on_headers_complete(http_parser *parser) {
 
 int on_url(http_parser *parser, const char *at, size_t length) {
     http_connection *connection = parser->data;
-      
-    if (length == 0) {
-      log_connection(get_info(connection), "on_url cannot parse out url");
-      exit(EXIT_FAILURE);
-    }
 
     connection->request.url = malloc(length + 1);
     strncpy(connection->request.url, at, length);
@@ -46,11 +41,6 @@ int on_header_value(http_parser *parser, const char *at, size_t length) {
 
 int on_body(http_parser *parser, const char *at, size_t length) {
     http_connection *connection = parser->data;
-    
-    if (length == 0) {
-      log_connection(get_info(connection), "on_body cannot parse out body");
-      exit(EXIT_FAILURE);
-    }
 
     connection->request.body = malloc(length + 1);
     strncpy(connection->request.body, at, length);
