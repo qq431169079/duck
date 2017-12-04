@@ -1,10 +1,24 @@
 #include "http.h"
+#include "log.h"
 
 static const char *PATH_TO_INDEX = "../www/index.html";
 static const char *PATH_TO_IMAGE = "../www/images/liso_header.png";
 static const char *PATH_TO_STYLE = "../www/style.css";
 static const char *HTTP_VERSION = "HTTP/1.1";
 static const char *PATH_TO_ICON = "../www/images/favicon.ico";
+
+static http_connection **connections;
+
+http_parser_settings settings;
+
+void init_http(http_connection *con[]) {
+  init_parser_settings();
+  get_connection(con);
+}
+
+void get_connection(http_connection *con[]) {
+    connections = con;
+}
 
 int on_message_complete(http_parser *parser) {
     return 0;
@@ -55,7 +69,7 @@ void add_connection(const int connfd, struct sockaddr_in *cliaddr) {
 }
 
 void remove_connection(const int connfd) {
-    log_connection(get_info(connections[connfd]), "disconnected");
+    log_connection(connfd, "disconnected");
     
     free(connections[connfd]->request.method);
     free(connections[connfd]->request.url);
@@ -71,7 +85,7 @@ int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
     const char *ptr;
   
     if ((ptr = message) == 0) {
-        log_connection(get_info(connections[connfd]), "message is empty");
+        log_connection(connfd, "message is empty");
         return 0;
     }
     for (ssize_t bytes_sent = 0; bytes_to_send > 0; ) {
@@ -79,7 +93,7 @@ int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
             if (bytes_sent < 0 && errno == EINTR) {
                 bytes_sent = 0;
             } else {
-                log_connection(get_info(connections[connfd]), "send_n error");
+                log_connection(connfd, "send_n error");
                 return -1;
             }
         }
@@ -99,11 +113,11 @@ ssize_t read_file(http_connection *connection, const char *path_to_file, char *b
     switch(f_mode) {
         case OPEN_BINARY: open_mode = "rb"; break;
         case OPEN_TEXT:   open_mode = "r";  break;
-        default:     log_connection(get_info(connection), "Unknown file_type"); return -1;
+        default:     log_connection(connection->connfd, "Unknown file_type"); return -1;
     }
 
     if ((file = fopen(path_to_file, open_mode)) == NULL) {
-        log_connection(get_info(connection), "Error open file");
+        log_connection(connection->connfd, "Error open file");
         return -1;
     }
     
@@ -119,7 +133,7 @@ ssize_t read_file(http_connection *connection, const char *path_to_file, char *b
     free(buf);
 
     if (fclose(file) == EOF) {
-        log_connection(get_info(connection), "Error close file");
+        log_connection(connection->connfd, "Error close file");
         return -1;
     }
 
@@ -139,7 +153,7 @@ int parse_http(http_connection *connection) {
     msg_buffer[recved] = '\0';
 
     if (recved < 0) {
-        log_connection(get_info(connection), "Error recv");
+        log_connection(connection->connfd, "Error recv");
         return -1;
     } else if (recved == 0) {
         return 0;
@@ -148,10 +162,10 @@ int parse_http(http_connection *connection) {
     nparsed = http_parser_execute(parser, &settings, msg_buffer, recved);
     
     if (parser->upgrade) {
-        log_connection(get_info(connection), "Error parser->upgrade");
+        log_connection(connection->connfd, "Error parser->upgrade");
         return -1;
     } else if (nparsed != recved) {
-        log_connection(get_info(connection), "Error nparsed != recved");
+        log_connection(connection->connfd, "Error nparsed != recved");
         return -1;
     }
     free(parser);
@@ -176,7 +190,7 @@ int construct_response(http_connection *connection, char *http_info, size_t *htt
       log_msg("construct_response: connection does not exist");
       exit(EXIT_FAILURE);
     } else if (connection->request.url == 0) {
-      log_connection(get_info(connection), "construct_response: connection has no url. give up the connection");
+      log_connection(connection->connfd, "construct_response: connection has no url. give up the connection");
       return -1;
     }
     if (strcmp(connection->request.url, "/") == 0) {
@@ -196,12 +210,12 @@ int construct_response(http_connection *connection, char *http_info, size_t *htt
         f_mode = OPEN_BINARY;
         content_type = "image/x-icon";    
     } else {
-        log_connection(get_info(connection), "unmatched url");
+        log_connection(connection->connfd, "unmatched url");
         return -1;
     }
         
     if ((*body_size = read_file(connection, path, body, f_mode)) < 0) {
-        log_connection(get_info(connection), "cannot read_file");
+        log_connection(connection->connfd, "cannot read_file");
         return -1;
     }
 
@@ -219,12 +233,12 @@ int construct_response(http_connection *connection, char *http_info, size_t *htt
 // send the http_info(headers) first, then the body
 int send_response(http_connection *connection, const char *http_info, const size_t http_info_size, const char *body, const size_t body_size) {
     if (send_n(connection->connfd, http_info, http_info_size, 0) == -1) {
-        log_connection(get_info(connection), "send error");
+        log_connection(connection->connfd, "send error");
         return -1;
     }
 
     if (send_n(connection->connfd, body, body_size, 0) == -1) {
-        log_connection(get_info(connection), "send error");
+        log_connection(connection->connfd, "send error");
         return -1;
     }
     
@@ -258,7 +272,7 @@ int connection_handler(http_connection *connection) {
         return -1;
     }
     
-    log_connection(get_full_info(connection), "");  // TODO: Connection time should be added before parsing so it can print now
+    log_connection(connection->connfd, "");  // TODO: Connection time should be added before parsing so it can print now
 
     if ((status = process_response(connection)) == -1) {
         return -1;
@@ -281,18 +295,3 @@ void init_connection(http_connection *connection, int connfd, struct sockaddr_in
     strcpy(connection->ip, inet_ntoa(cliaddr->sin_addr));
 }
 
-const char *get_full_info(const http_connection *connection) {
-    if (sprintf(log_buffer, "%s %d %s %s", connection->ip,  connection->connfd, connection->request.url, connection->request.method) < 0) {
-        return NULL;
-    }
-
-    return log_buffer;
-}
-
-const char *get_info(const http_connection *connection) {
-    if (sprintf(log_buffer, "%s %d", connection->ip, connection->connfd) < 0) {
-        return NULL;
-    }
-
-    return log_buffer;
-}

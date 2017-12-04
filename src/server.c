@@ -33,7 +33,7 @@ int parse_command_argument(int argc, char *argv[], short int *port) {
 
 void shutdown_server(int signum) {
     log_msg("Shutdown server");
-    close_log_file(log_file);
+    close_log_file();
     exit(EXIT_FAILURE);
 }
 
@@ -72,10 +72,12 @@ int main(int argc, char *argv[]) {
     char buffer[MAX_LEN];
     fd_set active_fd_set, read_fd_set;
     
-    
 
-    init_parser_settings();
-    create_log_file();
+    http_connection *con[FD_SETSIZE];
+    init_http(con);
+   
+    init_log((const http_connection **)con);
+
     current_process_id = getpid();
     signal(SIGTERM, shutdown_server);
 
@@ -107,7 +109,7 @@ int main(int argc, char *argv[]) {
                     add_connection(connfd, &cliaddr);
                     FD_SET(connfd, &active_fd_set);
                 } else {
-                    int status = connection_handler(connections[i]);
+                    int status = connection_handler(con[i]);
                     if (status == 0) {
                         if (close(i) < 0) {
                             log_msg("Error closing connfd");

@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include "lib/http_parser.h"
-#include "log.h"
 
 enum file_open_mode {
     OPEN_BINARY = 0
@@ -43,10 +42,13 @@ typedef struct {
     http_request request;
 } http_connection;
 
-http_connection *connections[FD_SETSIZE];
-http_parser_settings settings;
+
+void init_http(http_connection *con[]);
+
 char log_buffer[LOG_BUF_SIZE];
 
+// connections variable is defined in main, make local pointer points to it
+void get_connection();
 void init_parser_settings();
 
 int on_message_complete(http_parser *parser);
@@ -72,8 +74,5 @@ int connection_handler(http_connection *connection);
 void add_connection(const int connfd, struct sockaddr_in *cliaddr);
 void remove_connection(const int connfd);
 void init_connection(http_connection *connection, int connfd, struct sockaddr_in *cliaddr);
-
-const char *get_full_info(const http_connection *connection);
-const char *get_info(const http_connection *connection);
 
 #endif
