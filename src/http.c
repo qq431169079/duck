@@ -1,12 +1,6 @@
 #include "http.h"
 #include "log.h"
 
-static const char *PATH_TO_INDEX = "../www/index.html";
-static const char *PATH_TO_IMAGE = "../www/images/liso_header.png";
-static const char *PATH_TO_STYLE = "../www/style.css";
-static const char *HTTP_VERSION = "HTTP/1.1";
-static const char *PATH_TO_ICON = "../www/images/favicon.ico";
-
 static http_connection **connections;
 
 http_parser_settings settings;
@@ -17,52 +11,66 @@ void init_http(http_connection *con[]) {
 }
 
 void get_connection(http_connection *con[]) {
-    connections = con;
+  connections = con;
 }
 
 int on_message_complete(http_parser *parser) {
-    return 0;
+  return 0;
 }
 
 int on_headers_complete(http_parser *parser) {
-    http_connection *connection = parser->data;
-    const char *method = http_method_str((enum http_method) parser->method);
-    
-    connection->request.method = malloc(sizeof(method));
-    strcpy(connection->request.method, method);
-    connection->request.http_major = parser->http_major;
-    connection->request.http_minor = parser->http_minor;
-    
-    return 0;
+  http_connection *connection = parser->data;
+  const char *method = http_method_str((enum http_method) parser->method);
+  
+  set_meta_variable(REQUEST_METHOD, 
+      connection->request.cgi_env, method, strlen(method));
+
+  // HTTP/1.1\0  9 characters
+  char buf[9];
+  sprintf(buf, "HTTP/%d.%d", parser->http_major, parser->http_minor);
+  set_meta_variable(SERVER_PROTOCOL,
+      connection->request.cgi_env, buf, 9);
+
+  return 0;
 }
 
 int on_url(http_parser *parser, const char *at, size_t length) {
-    http_connection *connection = parser->data;
+  http_connection *connection = parser->data;
+  set_meta_variable(HTTP_REFERER,
+      connection->request.cgi_env, at, length);
 
-    connection->request.url = malloc(length + 1);
-    strncpy(connection->request.url, at, length);
-    connection->request.url[length] = '\0';
-    return 0;
+  return 0;
 }
 
 int on_header_field(http_parser *parser, const char *at, size_t length) {
-    return 0;
+  http_connection *connection = parser->data;
+  connection->request.meta_var = parse_header_field(at, length);
+  return 0;
 }
 
 int on_header_value(http_parser *parser, const char *at, size_t length) {
-    return 0;
+  http_connection *connection = parser->data;
+  // The server ignores some headers
+  if (connection->request.meta_var >= 0) {
+    set_meta_variable(connection->request.meta_var, 
+        connection->request.cgi_env, at, length);
+  }
+  return 0;
 }
 
 int on_body(http_parser *parser, const char *at, size_t length) {
-    http_connection *connection = parser->data;
-
-    connection->request.body = malloc(length + 1);
-    strncpy(connection->request.body, at, length);
-    connection->request.body[length] = '\0';
-    
+  if (length == 0) {
     return 0;
+  }
+  http_connection *connection = parser->data;
+  connection->request.body = (char *)malloc(length + 1);
+    
+  strncpy(connection->request.body, at, length);
+  connection->request.body[length] = '\0';
+  return 0;
 }
 
+// Connection
 void add_connection(const int connfd, struct sockaddr_in *cliaddr) {
     connections[connfd] = (http_connection *) malloc (sizeof(http_connection));
     init_connection(connections[connfd], connfd, cliaddr);
@@ -71,14 +79,11 @@ void add_connection(const int connfd, struct sockaddr_in *cliaddr) {
 void remove_connection(const int connfd) {
     log_connection(connfd, "disconnected");
     
-    free(connections[connfd]->request.method);
-    free(connections[connfd]->request.url);
-    free(connections[connfd]->request.body);
-    for (size_t i = 0; i < MAX_HEADER_COUNT; i++) {
-        free(connections[connfd]->request.headers[i]);
-    }
-
-    free(connections[connfd]);
+    http_connection *con = connections[connfd];
+    
+    free_meta_variables(con->request.cgi_env);
+    free(con->request.body);
+    free(con);
 }
 
 int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
@@ -104,6 +109,7 @@ int send_n(size_t connfd, const char *message, size_t bytes_to_send, int flag) {
     return 0;
 }
 
+/*
 ssize_t read_file(http_connection *connection, const char *path_to_file, char *body, enum file_open_mode f_mode) {
     FILE *file;
     char *buf;
@@ -138,7 +144,7 @@ ssize_t read_file(http_connection *connection, const char *path_to_file, char *b
     }
 
     return body_size;
-}
+}*/
 
 int parse_http(http_connection *connection) {
     char msg_buffer[MAX_LEN];
@@ -158,7 +164,7 @@ int parse_http(http_connection *connection) {
     } else if (recved == 0) {
         return 0;
     }
-    
+    //printf("%s\n", msg_buffer);
     nparsed = http_parser_execute(parser, &settings, msg_buffer, recved);
     
     if (parser->upgrade) {
@@ -170,123 +176,41 @@ int parse_http(http_connection *connection) {
     }
     free(parser);
 
-    
-
     return 0;
 }
 
-int fetch_files(http_connection *connection) {
-    
-    
-    return 0;
-}
-
-int construct_response(http_connection *connection, char *http_info, size_t *http_info_size, char *body, size_t *body_size) {
-    const char *path;
-    enum file_open_mode f_mode;
-    const char *content_type;
-    
-    if (connection == 0) {
-      log_msg("construct_response: connection does not exist");
-      exit(EXIT_FAILURE);
-    } else if (connection->request.url == 0) {
-      log_connection(connection->connfd, "construct_response: connection has no url. give up the connection");
-      return -1;
-    }
-    if (strcmp(connection->request.url, "/") == 0) {
-        path = PATH_TO_INDEX;
-        f_mode = OPEN_TEXT;
-        content_type = "text/html";
-    } else if (strcmp(connection->request.url, "/style.css") == 0) {
-        path = PATH_TO_STYLE;
-        f_mode = OPEN_TEXT;
-        content_type = "text/css";
-    } else if (strcmp(connection->request.url, "/images/liso_header.png") == 0) {
-        path = PATH_TO_IMAGE;
-        f_mode = OPEN_BINARY;
-        content_type = "image/png";
-    } else if (strcmp(connection->request.url, "/favicon.ico") == 0) {
-        path = PATH_TO_ICON;
-        f_mode = OPEN_BINARY;
-        content_type = "image/x-icon";    
-    } else {
-        log_connection(connection->connfd, "unmatched url");
-        return -1;
-    }
-        
-    if ((*body_size = read_file(connection, path, body, f_mode)) < 0) {
-        log_connection(connection->connfd, "cannot read_file");
-        return -1;
-    }
-
-    char *target = http_info;
-    target += sprintf(target, "%s %d %s\n", HTTP_VERSION, 200, "OK");
-    target += sprintf(target, "%s: %s\n", "Content-Type", content_type);
-    target += sprintf(target, "%s: %lu\n", "Content-Length", *body_size);
-    target += sprintf(target, "%s: %s\n", "Connection", "close");
-    target += sprintf(target, "\n");
-
-    *http_info_size = target - http_info;
-    return 0;
-}
-
-// send the http_info(headers) first, then the body
-int send_response(http_connection *connection, const char *http_info, const size_t http_info_size, const char *body, const size_t body_size) {
-    if (send_n(connection->connfd, http_info, http_info_size, 0) == -1) {
-        log_connection(connection->connfd, "send error");
-        return -1;
-    }
-
-    if (send_n(connection->connfd, body, body_size, 0) == -1) {
-        log_connection(connection->connfd, "send error");
-        return -1;
-    }
-    
-    return 0;
-}
-
-int process_response(http_connection *connection) {
-    size_t body_size = 0;
-    size_t http_info_size = 0;
-    char body[40000] = { 0 };   // TODO: how to dynamic allocate just enough space?
-    char http_info[1024] = { 0 };        // TODO: same as above
-
-    if (fetch_files(connection) == -1) {
-        return -1;
-    }
-
-    if (construct_response(connection, http_info, &http_info_size, body, &body_size) == -1) {
-        return -1;
-    }
-
-    if (send_response(connection, http_info, http_info_size, body, body_size) == -1) {
-        return -1;
-    }
-    
-    return 0;
-}
 
 int connection_handler(http_connection *connection) {
-    int status;
-    if ((status = parse_http(connection)) == -1) {
-        return -1;
-    }
-    
-    log_connection(connection->connfd, "");  // TODO: Connection time should be added before parsing so it can print now
+  int status;
+  if ((status = parse_http(connection)) < 0) {
+    log_connection(connection->connfd, "parser_http in http.c failed");
+    return -1;
+  }
+  
+  // Log the connection
+  log_connection(connection->connfd, "");  
 
-    if ((status = process_response(connection)) == -1) {
-        return -1;
+  // Init the cgi meta-variables that are not given by the request
+  fill_cgi_meta_variables(connection->request.cgi_env);
+
+  int i = 0;
+  for ( ; i < CGI_META_VARIABLE_COUNT; ++i) {
+    if (connection->request.cgi_env[i]) {
+      printf("%s\n", connection->request.cgi_env[i]);
     }
-    return 0;
+  }
+  // Start CGI 
+
+  return 0;
 }
 
 void init_parser_settings() {
-    settings.on_url = on_url;
-    settings.on_header_field = on_header_field;
-    settings.on_header_value = on_header_value;
-    settings.on_body = on_body;
-    settings.on_headers_complete = on_headers_complete;
-    settings.on_message_complete = on_message_complete;
+  settings.on_url = on_url;
+  settings.on_header_field = on_header_field;
+  settings.on_header_value = on_header_value;
+  settings.on_body = on_body;
+  settings.on_headers_complete = on_headers_complete;
+  settings.on_message_complete = on_message_complete;
 }
 
 void init_connection(http_connection *connection, int connfd, struct sockaddr_in *cliaddr) {

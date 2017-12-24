@@ -11,12 +11,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "precgi.h"
 #include "lib/http_parser.h"
-
-enum file_open_mode {
-    OPEN_BINARY = 0
-,   OPEN_TEXT   = 1
-};
 
 #define MAX_LEN 4096
 #define MAX_HEADER_COUNT 64
@@ -27,19 +23,17 @@ enum file_open_mode {
 #endif
 
 typedef struct {
-    char *method;
-    char *url;
-    char *headers[MAX_HEADER_COUNT];
-    char *body;
-    unsigned short http_major;
-    unsigned short http_minor;
+  int meta_var; 
+  char *cgi_env[CGI_META_VARIABLE_COUNT];
+    
+  char *body;
 } http_request;
 
 typedef struct {
-    int connfd;
-    char ip[128];
+  int connfd;
+  char ip[128];
 
-    http_request request;
+  http_request request;
 } http_connection;
 
 
@@ -47,30 +41,23 @@ void init_http(http_connection *con[]);
 
 char log_buffer[LOG_BUF_SIZE];
 
-// connections variable is defined in main, make local pointer points to it
+// Connections variable is defined in main, make local pointer points to it
 void get_connection();
 void init_parser_settings();
 
+// Parsing
 int on_message_complete(http_parser *parser);
 int on_headers_complete(http_parser *parser);
-
 int on_body(http_parser *parser, const char *at, size_t length);
 int on_url(http_parser *parser, const char *at, size_t length);
 int on_header_field(http_parser *parser, const char *at, size_t length);
 int on_header_value(http_parser *parser, const char *at, size_t length);
+int parse_http(http_connection *connection);
 
 int send_n(size_t connfd, const char *message, size_t bytes_to_read, int flag);
-
-ssize_t read_file(http_connection *connection, const char *path_to_file, char *body, enum file_open_mode f_mode);
-
-int fetch_files(http_connection *connection);
-int parse_http(http_connection *connection);
-int construct_response(http_connection *connection, char *http_info, size_t *http_info_size, char *body, size_t *body_size);
-int send_response(http_connection *connection, const char *http_info, const size_t http_info_size, const char *body, const size_t body_size);
-
-int process_response(http_connection *connection);
 int connection_handler(http_connection *connection);
 
+// Connection
 void add_connection(const int connfd, struct sockaddr_in *cliaddr);
 void remove_connection(const int connfd);
 void init_connection(http_connection *connection, int connfd, struct sockaddr_in *cliaddr);

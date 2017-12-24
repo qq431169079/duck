@@ -32,9 +32,9 @@ int parse_command_argument(int argc, char *argv[], short int *port) {
 }
 
 void shutdown_server(int signum) {
-    log_msg("Shutdown server");
-    close_log_file();
-    exit(EXIT_FAILURE);
+  log_msg("Shutdown server");
+  close_log_file();
+  exit(EXIT_FAILURE);
 }
 
 int setup_listenfd(const short int port) {
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
     init_http(con);
    
     init_log((const http_connection **)con);
-
+    
     current_process_id = getpid();
     signal(SIGTERM, shutdown_server);
 

@@ -36,7 +36,7 @@ void log_msg(const char *message) {
 }
 
 void log_connection(const int connfd, const char *message) {
-    get_full_info(connfd);
+    get_info(connfd);
 
     fprintf(log_file, "%s %s %s\n", get_current_time(), 
                 log_info_buffer, message);
@@ -55,16 +55,6 @@ void create_log_file() {
     }
 }
 
-const char *get_full_info(const int connfd) {
-  const http_connection *connection = connections[connfd];
-  if (sprintf(log_info_buffer, "%s %d %s %s", 
-        connection->ip,  connection->connfd, 
-        connection->request.url, connection->request.method) < 0) {                       return NULL;
-  }
-
-  return log_buffer;                                                                
-}                                                                                     
-
 const char *get_info(const int connfd) {
   const http_connection *connection = connections[connfd];
   if (sprintf(log_info_buffer, "%s %d", connection->ip, connection->connfd) < 0) {       
@@ -73,4 +63,3 @@ const char *get_info(const int connfd) {
 
   return log_buffer;                                                                
 }                                                                                     
-
