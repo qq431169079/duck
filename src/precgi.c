@@ -1,5 +1,12 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "precgi.h"
 #include "log.h"
+
+short server_port;
+char *server_port_str;
 
 static const char *cgi_meta_variable_str_map[CGI_META_VARIABLE_COUNT] = {
   [CONTENT_TYPE]            = "CONTENT_TYPE",
@@ -38,6 +45,27 @@ static const char *http_meta_map[CGI_META_VARIABLE_COUNT] = {
   [HTTP_USER_AGENT]         = "User-Agent",
   [HTTP_CONNECTION]         = "Connection",
 };
+
+int init_cgi_settings(short port) {
+  set_server_port(port);
+  return 0;
+}
+
+int remove_cgi_settings() {
+  free(server_port_str);
+  return 0;
+}
+
+int set_server_port(short port) {
+  server_port = port;
+  server_port_str = (char *)malloc(6);
+  sprintf(server_port_str, "%d", server_port);
+  return 0;
+}
+
+const char *get_server_port_str() {
+  return server_port_str;
+}
 
 const char *get_meta_var_str(enum cgi_meta_variable var) {
   if (var < 0 || var >= CGI_META_VARIABLE_COUNT) {
@@ -79,6 +107,14 @@ int free_meta_variables(char **cgi_env) {
 }
 
 int fill_cgi_meta_variables(char **cgi_env) {
+  set_meta_variable(GATEWAY_INTERFACE, cgi_env, 
+      DEFAULT_CGI_PROTOCOL,    strlen(DEFAULT_CGI_PROTOCOL));
+  set_meta_variable(SERVER_SOFTWARE,   cgi_env,
+      DEFAULT_SERVER_SOFTWARE, strlen(DEFAULT_SERVER_SOFTWARE));
+  set_meta_variable(SERVER_PORT,       cgi_env,
+      server_port_str,         strlen(server_port_str));
+
+  // Initialize the meta-variables that are null, but leave the value empty
   size_t i = 0;
   for ( ; i < CGI_META_VARIABLE_COUNT; ++i) {
     if (cgi_env[i] == 0) {
@@ -101,3 +137,5 @@ enum cgi_meta_variable parse_header_field(const char *at, size_t len) {
   }
   return -1;
 }
+
+

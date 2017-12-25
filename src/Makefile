@@ -2,12 +2,18 @@
 
 CC = gcc -std=c99
 CCFLAGS = -ggdb
-OBJ = server.o http.o log.o http_parser.o	precgi.o
+OBJ = server.o http.o log.o http_parser.o precgi.o
 
-all: server
+all: server cgi
 
 server: $(OBJ)
 	$(CC) $(CCFLAGS) -o server $(OBJ)
+
+cgi: cgi.o
+	$(CC) $(CCFLAGS) -o cgi	cgi.o
+
+cgi.o: cgi.c cgi.h
+	$(CC) $(CCFLAGS) -c cgi.c
 
 server.o: server.c
 	$(CC) $(CCFLAGS) -c server.c
@@ -27,5 +33,5 @@ precgi.o: precgi.c precgi.h
 
 
 clean:
-	rm server $(OBJ)
+	rm server $(OBJ) cgi cgi.o
 

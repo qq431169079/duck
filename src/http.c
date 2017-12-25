@@ -1,5 +1,5 @@
-#include "http.h"
 #include "log.h"
+#include "http.h"
 
 static http_connection **connections;
 
@@ -15,6 +15,21 @@ void get_connection(http_connection *con[]) {
 }
 
 int on_message_complete(http_parser *parser) {
+  http_connection *connection = parser->data;
+
+  set_meta_variable(REMOTE_ADDR, connection->request.cgi_env,
+      connection->ip,  strlen(connection->ip)); 
+
+  // Init the cgi meta-variables that are not given by the request
+  fill_cgi_meta_variables(connection->request.cgi_env);
+
+  int i = 0;
+  for ( ; i < CGI_META_VARIABLE_COUNT; ++i) {
+    if (connection->request.cgi_env[i]) {
+      printf("%s\n", connection->request.cgi_env[i]);
+    }
+  }
+
   return 0;
 }
 
@@ -34,10 +49,47 @@ int on_headers_complete(http_parser *parser) {
   return 0;
 }
 
+static int parse_pathinfo_scriptname(const char *uri, http_connection *connection) {
+  size_t uri_len = strlen(uri);
+
+  if (uri_len == 1 && uri[0] == '/') {
+    set_meta_variable(PATH_INFO,   connection->request.cgi_env,
+        "/",  1);  
+  } else if (uri_len > 4 && strncmp(uri, "/cgi", 4) == 0) {
+    set_meta_variable(SCRIPT_NAME, connection->request.cgi_env,
+        "/cgi", 4);
+    set_meta_variable(PATH_INFO,   connection->request.cgi_env,
+        uri + 4,   uri_len - 4);
+  } else {
+    return -1;
+  }
+}
+
+// http_URL = "http:" "//" host [ ":" port ] [ abs_path [ "?" query ]]
 int on_url(http_parser *parser, const char *at, size_t length) {
   http_connection *connection = parser->data;
-  set_meta_variable(HTTP_REFERER,
-      connection->request.cgi_env, at, length);
+  struct http_parser_url u;
+  http_parser_url_init(&u);
+
+  if (http_parser_parse_url(at, length, 0, &u) == 0) {
+    // Get PATH_INFO and SCRIPT_NAME
+    char uri[500];
+    memset(uri, 0, 500);
+    strncpy(uri, at + u.field_data[UF_PATH].off, u.field_data[UF_PATH].len);
+    if (parse_pathinfo_scriptname(uri, connection) < 0) {
+      log_msg("on_url parse_path_info_scriptname failed");
+      return -1;
+    }
+    
+    // Get QUERY_STRING
+    if (u.field_data[UF_QUERY].len > 0) {
+      set_meta_variable(QUERY_STRING, connection->request.cgi_env,
+          at + u.field_data[UF_QUERY].off, u.field_data[UF_QUERY].len);
+    }
+  } else {
+    log_msg("on_url http_parser_parser_url failed");
+    return -1;
+  }
 
   return 0;
 }
@@ -179,7 +231,6 @@ int parse_http(http_connection *connection) {
     return 0;
 }
 
-
 int connection_handler(http_connection *connection) {
   int status;
   if ((status = parse_http(connection)) < 0) {
@@ -189,18 +240,8 @@ int connection_handler(http_connection *connection) {
   
   // Log the connection
   log_connection(connection->connfd, "");  
-
-  // Init the cgi meta-variables that are not given by the request
-  fill_cgi_meta_variables(connection->request.cgi_env);
-
-  int i = 0;
-  for ( ; i < CGI_META_VARIABLE_COUNT; ++i) {
-    if (connection->request.cgi_env[i]) {
-      printf("%s\n", connection->request.cgi_env[i]);
-    }
-  }
+  
   // Start CGI 
-
   return 0;
 }
 

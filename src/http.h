@@ -3,6 +3,14 @@
 
 #define _GNU_SOURCE
 
+#define MAX_LEN 4096
+#define MAX_HEADER_COUNT 64
+#define LOG_BUF_SIZE 256
+
+#ifndef FD_SETSIZE
+#define FD_SETSIZE 1024
+#endif
+
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
@@ -11,16 +19,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "precgi.h"
 #include "lib/http_parser.h"
-
-#define MAX_LEN 4096
-#define MAX_HEADER_COUNT 64
-#define LOG_BUF_SIZE 256
-
-#ifndef FD_SETSIZE
-#define FD_SETSIZE 1024
-#endif
+#include "precgi.h"
 
 typedef struct {
   int meta_var; 

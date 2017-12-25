@@ -13,6 +13,7 @@
 
 #include "http.h"
 #include "log.h"
+#include "precgi.h"
 
 #define DEFAULT_PORT 9999
 
@@ -34,10 +35,11 @@ int parse_command_argument(int argc, char *argv[], short int *port) {
 void shutdown_server(int signum) {
   log_msg("Shutdown server");
   close_log_file();
+  remove_cgi_settings();
   exit(EXIT_FAILURE);
 }
 
-int setup_listenfd(const short int port) {
+int setup_listenfd(const short port) {
     int listenfd = 0;
     struct sockaddr_in servaddr;
 
@@ -66,16 +68,14 @@ int setup_listenfd(const short int port) {
 int main(int argc, char *argv[]) {
     int listenfd, connfd;
     int current_process_id;
-    short int port = DEFAULT_PORT;
+    short port = DEFAULT_PORT;
     struct sockaddr_in cliaddr;
     socklen_t clilen;
     char buffer[MAX_LEN];
     fd_set active_fd_set, read_fd_set;
     
-
     http_connection *con[FD_SETSIZE];
     init_http(con);
-   
     init_log((const http_connection **)con);
     
     current_process_id = getpid();
@@ -88,6 +88,8 @@ int main(int argc, char *argv[]) {
     if ((listenfd = setup_listenfd(port)) == -1) {
         kill(current_process_id, SIGTERM);
     }
+    
+    init_cgi_settings(port);
 
     FD_ZERO(&active_fd_set);
     FD_SET(listenfd, &active_fd_set);
